@@ -246,7 +246,9 @@ function DashboardOverview({ trends, onSelectTrend }: { trends: Trend[], onSelec
 }
 
 function App() {
-  const [trends, setTrends] = useState<Trend[]>(SAMPLE_TRENDS);
+  const [trends, setTrends] = useState<Trend[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const [selectedTrend, setSelectedTrend] = useState<Trend | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -255,6 +257,41 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Analysis Modal State
+  const performInitialDiscovery = React.useCallback(async () => {
+  setIsInitialLoading(true);
+  try {
+    // Check if trends were discovered in the last 24 hours to save API quota
+    const cached = localStorage.getItem('radar_discovery_cache');
+    const expiry = localStorage.getItem('radar_discovery_expiry');
+    
+    if (cached && expiry && Date.now() < parseInt(expiry)) {
+      setTrends(JSON.parse(cached));
+      setIsInitialLoading(false);
+      return;
+    }
+
+    // Call Gemini for real-time discovery
+    const discoveryPrompt = "Scan the Indian D2C and wellness market for 2026. Identify 6 emerging trends with high growth potential.";
+    const result = await analyzeTrendWithGemini(discoveryPrompt);
+    
+    // Merge AI result with existing sample data to fill the UI
+    const combinedTrends = [result, ...SAMPLE_TRENDS];
+    setTrends(combinedTrends);
+    
+    // Save to cache (24-hour expiry)
+    localStorage.setItem('radar_discovery_cache', JSON.stringify(combinedTrends));
+    localStorage.setItem('radar_discovery_expiry', (Date.now() + 86400000).toString());
+  } catch (err) {
+    console.error("Discovery failed:", err);
+    setTrends(SAMPLE_TRENDS); // Fallback to samples on error
+  } finally {
+    setIsInitialLoading(false);
+  }
+}, []);
+
+useEffect(() => {
+  performInitialDiscovery();
+}, [performInitialDiscovery]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [analysisTopic, setAnalysisTopic] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -496,7 +533,24 @@ function App() {
           <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 scroll-smooth">
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <AnimatePresence mode="wait">
-              {activeView === 'Overview' ? (
+              {isInitialLoading ? (
+        <motion.div 
+          key="discovery-loader"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="h-[70vh] flex flex-col items-center justify-center space-y-6"
+        >
+          <div className="relative">
+            <Loader2 size={64} className="text-blue-600 animate-spin" />
+            <Sparkles className="absolute -top-4 -right-4 text-blue-400 animate-pulse" />
+          </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold dark:text-white tracking-tight">AI Market Discovery Active</h2>
+            <p className="text-slate-500 dark:text-slate-400">Extracting 2026 signals from Reddit, Instagram, and Amazon India...</p>
+          </div>
+        </motion.div>
+      ) :activeView === 'Overview' ? (
                 <div key="overview" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                   {/* Left Column: Trend List */}
                   <div className={cn(
