@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-progress: progress 2s ease-in-out infinite;
+  --keyframes-progress: {
+    0%: { transform: translateX(-100%) };
+    50%: { transform: translateX(0%) };
+    100%: { transform: translateX(100%) };
+  };
+}
+
+:root {
+  background-color: #020617 !important;
+  color: #f1f5f9 !important;
+  color-scheme: dark;
+}
+
+body {
+  background-color: inherit;
+  color: inherit;
+}
